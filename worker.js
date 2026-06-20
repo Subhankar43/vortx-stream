@@ -391,6 +391,20 @@ if (path === '/admin/maintenance' && request.method === 'POST') {
   return json({ status: true });
 }
 
+// GET /admin/live-streams
+if (path === '/admin/live-streams' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__live_streams__') || '[]';
+  return json({ status: true, streams: JSON.parse(raw) });
+}
+
+// POST /admin/live-streams/save
+if (path === '/admin/live-streams/save' && request.method === 'POST') {
+  const { streams } = body;
+  if (!Array.isArray(streams)) return json({ status: false, msg: 'Must be array' });
+  await VORTX_USERS.put('__live_streams__', JSON.stringify(streams));
+  return json({ status: true });
+}
+
     return json({ status: false, msg: 'Unknown admin endpoint' }, 404);
   }
 // GET /homepage-notice — public
@@ -440,6 +454,12 @@ if (path === '/maintenance' && request.method === 'GET') {
   const raw = await VORTX_USERS.get('__maintenance__') || 'false';
   return json({ enabled: raw === 'true' });
 }
+// GET /live-streams — public
+if (path === '/live-streams' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__live_streams__') || '[]';
+  return json({ streams: JSON.parse(raw) });
+}
+
   return json({ status: false, msg: 'Bhaag Bhosdike' }, 404);
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { tmdb, IMG, GENRE_MAP } from '../utils/tmdb';
+import { WORKER_URL } from '../utils/tmdb';
 
 export default function Hero({ onOpen }) {
   const [items, setItems]   = useState([]);
@@ -8,9 +9,13 @@ export default function Hero({ onOpen }) {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    tmdb('/trending/all/day').then(data => {
+    Promise.all([
+      fetch(`${WORKER_URL}/live-streams`).then(r => r.json()).catch(() => ({ streams: [] })),
+      tmdb('/trending/all/day'),
+    ]).then(([liveData, data]) => {
       const filtered = (data.results || []).filter(r => r.backdrop_path).slice(0, 8);
-      setItems(filtered);
+      const live = (liveData.streams || []).map(s => ({ ...s, isLive: true }));
+      setItems([...live, ...filtered]);
       setLoading(false);
     });
     return () => clearInterval(timerRef.current);
@@ -36,8 +41,8 @@ export default function Hero({ onOpen }) {
   const item = items[index];
   if (!item) return null;
 
-  const type     = item.media_type === 'tv' ? 'tv' : 'movie';
-  const title    = item.title || item.name || '';
+  const type     = item.isLive ? 'live' : (item.media_type === 'tv' ? 'tv' : 'movie');
+  const title    = item.isLive ? item.title : (item.title || item.name || '');
   const year     = (item.release_date || item.first_air_date || '').slice(0, 4);
   const rating   = item.vote_average ? item.vote_average.toFixed(1) : '';
   const overview = item.overview || '';
@@ -47,33 +52,41 @@ export default function Hero({ onOpen }) {
     <section className="hero">
       <div
         className="hero-bg"
-        style={{ backgroundImage: `url(${IMG}original${item.backdrop_path})` }}
+        style={{ backgroundImage: `url(${item.isLive ? item.poster : IMG+'original'+item.backdrop_path})` }}
       />
       <div className="hero-overlay" />
       <div className="hero-content">
         <div className="hero-type-badge">
-          {type === 'tv' ? '📺 Series' : '🎬 Movie'}
+          {item.isLive ? '🔴 LIVE' : type === 'tv' ? '📺 Series' : '🎬 Movie'}
         </div>
         <h1 className="hero-title">{title}</h1>
-        <div className="hero-meta">
-          {rating && <span className="hero-rating">★ {rating}</span>}
-          {year && <><span className="hero-dot"/><span className="hero-year">{year}</span></>}
-        </div>
-        {genres.length > 0 && (
-          <div className="hero-genres">
-            {genres.map(g => <span key={g} className="hero-genre-tag">{g}</span>)}
-          </div>
+        {item.isLive ? (
+          <div className="hero-meta"><span className="hero-year">{item.time}</span></div>
+        ) : (
+          <>
+            <div className="hero-meta">
+              {rating && <span className="hero-rating">★ {rating}</span>}
+              {year && <><span className="hero-dot"/><span className="hero-year">{year}</span></>}
+            </div>
+            {genres.length > 0 && (
+              <div className="hero-genres">
+                {genres.map(g => <span key={g} className="hero-genre-tag">{g}</span>)}
+              </div>
+            )}
+            {overview && <p className="hero-overview">{overview}</p>}
+          </>
         )}
-        {overview && <p className="hero-overview">{overview}</p>}
         <div className="hero-btns">
           <button className="hero-play-btn" onClick={() => onOpen(item, type)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Watch Now
+            {item.isLive ? 'Watch Live' : 'Watch Now'}
           </button>
-          <button className="hero-info-btn" onClick={() => onOpen(item, type)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            More Info
-          </button>
+          {!item.isLive && (
+            <button className="hero-info-btn" onClick={() => onOpen(item, type)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              More Info
+            </button>
+          )}
         </div>
       </div>
       <div className="hero-dots">

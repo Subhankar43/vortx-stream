@@ -10,6 +10,7 @@ import DetailPage from './pages/DetailPage';
 import AdminPage from './pages/AdminPage';
 import { LoginModal, SignupModal, WatchlistModal } from './components/AuthModals';
 import { WORKER_URL } from './utils/tmdb';
+import LivePlayer from './components/LivePlayer';
 
 function AppInner() {
   const [announcements, setAnnouncements] = useState([]);
@@ -70,7 +71,7 @@ useEffect(() => {
 
   const navigate = useNavigate();
   const location = useLocation(); // ← needed to detect /admin
-
+  const [livePlaying, setLivePlaying] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
@@ -87,6 +88,7 @@ useEffect(() => {
   const [prevPath, setPrevPath] = useState('/');
 
   function openDetail(item, type) {
+    if (type === 'live') { setLivePlaying(item); return; }
     setPrevPath(window.location.pathname);
     setDetailItem(item);
     setDetailType(type);
@@ -295,6 +297,7 @@ useEffect(() => {
         onClose={() => setWatchlistOpen(false)}
         onOpen={openDetail}
       />
+    <LivePlayer stream={livePlaying} onClose={() => setLivePlaying(null)} />
     </>
   );
 }

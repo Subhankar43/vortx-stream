@@ -211,6 +211,8 @@ function AdminPanel({ onLogout }) {
   const [userSearch, setUserSearch] = useState('');
   const [serverStatus, setServerStatus] = useState({});
   const [serverChecking, setServerChecking] = useState(false);
+  const [liveStreams, setLiveStreams] = useState([]);
+const [streamForm, setStreamForm] = useState({ poster: '', url: '', title: '', time: '' });
 
   // ── Resize listener ──
   useEffect(() => {
@@ -238,6 +240,8 @@ function AdminPanel({ onLogout }) {
       if (noticeData.notice !== undefined) setNoticeText(noticeData.notice);
       const maintData = await adminFetch('/admin/maintenance').catch(() => ({ enabled: false }));
       if (maintData.enabled !== undefined) setMaintenance(maintData.enabled);
+    const streamData = await adminFetch('/admin/live-streams').catch(() => ({ streams: [] }));
+if (streamData.streams) setLiveStreams(streamData.streams);
     } catch (e) {
       setError('Failed to load data. Make sure your Worker has the admin endpoints deployed.');
     }
@@ -292,11 +296,11 @@ function AdminPanel({ onLogout }) {
   async function checkServers() {
     setServerChecking(true); setServerStatus({});
     const servers = [
-      { id: 'videasy', url: 'https://player.videasy.net' },
+      { id: 'videasy', url: 'https://player.videasy.to' },
       { id: 'vidking', url: 'https://www.vidking.net' },
       { id: 'vidfast', url: 'https://vidfast.pro' },
       { id: 'rive',    url: 'https://rivestream.ru' },
-      { id: 'vidsrc',  url: 'https://vidsrc-embed.ru' },
+      { id: 'vidsrc',  url: 'https://vsembed.su' },
       { id: 'vidzen',  url: 'https://vidzen.fun' },
       { id: '111movies', url: 'https://111movies.net' },
       { id: 'vidapi',  url: 'https://vidapi.xyz' },
@@ -310,6 +314,32 @@ function AdminPanel({ onLogout }) {
     const onlineCount = Object.values(results).filter(v => v === 'online').length;
     showToast(`✅ Check complete — ${onlineCount}/${servers.length} servers online`);
   }
+  async function saveLiveStream() {
+  if (!streamForm.poster || !streamForm.url || !streamForm.title) {
+    showToast('❌ Poster, URL and Title required'); return;
+  }
+  let newList;
+  if (streamForm.editId) {
+    newList = liveStreams.map(s => s.id === streamForm.editId ? { ...streamForm, id: streamForm.editId } : s);
+  } else {
+    newList = [...liveStreams, { ...streamForm, id: Date.now() }];
+  }
+  try {
+    await adminFetch('/admin/live-streams/save', { method: 'POST', body: JSON.stringify({ streams: newList }) });
+    setLiveStreams(newList);
+    setStreamForm({ poster: '', url: '', title: '', time: '' });
+    showToast('✅ Live stream added!');
+  } catch { showToast('❌ Save failed'); }
+}
+
+async function deleteLiveStream(id) {
+  const newList = liveStreams.filter(s => s.id !== id);
+  try {
+    await adminFetch('/admin/live-streams/save', { method: 'POST', body: JSON.stringify({ streams: newList }) });
+    setLiveStreams(newList);
+    showToast('✅ Removed');
+  } catch { showToast('❌ Failed'); }
+}
 
   const tabs = [
     { id: 'dashboard',   label: '📊', fullLabel: '📊 Dashboard' },
@@ -319,6 +349,7 @@ function AdminPanel({ onLogout }) {
     { id: 'maintenance', label: '🔧', fullLabel: '🔧 Maintenance' },
     { id: 'announce',    label: '📢', fullLabel: '📢 Announcements' },
     { id: 'homepage',    label: '🏠', fullLabel: '🏠 Homepage Notice' },
+    { id: 'sports', label: '⚽', fullLabel: '⚽ Sports' },
   ];
 
   const filteredUsers = users.filter(u =>
@@ -705,6 +736,38 @@ function AdminPanel({ onLogout }) {
                 </div>
               </div>
             )}
+            {tab === 'sports' && (
+  <div>
+    <SectionHeader title="Live Sports / TV" sub="Add live streams shown on homepage carousel" />
+    <div style={panelStyles.announceBox}>
+      <input value={streamForm.poster} onChange={e => setStreamForm({...streamForm, poster: e.target.value})}
+        placeholder="Poster Image URL" style={{...panelStyles.textarea, height:42, marginBottom:10}} />
+      <input value={streamForm.url} onChange={e => setStreamForm({...streamForm, url: e.target.value})}
+        placeholder="M3U8 Stream URL" style={{...panelStyles.textarea, height:42, marginBottom:10}} />
+      <input value={streamForm.title} onChange={e => setStreamForm({...streamForm, title: e.target.value})}
+        placeholder="Title / Channel Name (e.g. FIFA World Cup Final)" style={{...panelStyles.textarea, height:42, marginBottom:10}} />
+      <input value={streamForm.time} onChange={e => setStreamForm({...streamForm, time: e.target.value})}
+        placeholder="Time (e.g. 9:00 PM)" style={{...panelStyles.textarea, height:42, marginBottom:14}} />
+      <div style={{display:'flex', gap:10}}>
+        <button onClick={saveLiveStream} style={panelStyles.saveBtn}>💾 Save</button>
+        <button onClick={() => setStreamForm({poster:'',url:'',title:'',time:''})} style={{...panelStyles.saveBtn, background:'rgba(255,255,255,0.06)', color:'rgba(232,244,255,0.7)'}}>Cancel</button>
+      </div>
+    </div>
+    <div style={{marginTop:20}}>
+      {liveStreams.map(s => (
+        <div key={s.id} style={{display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(0,200,232,0.1)', borderRadius:10, marginBottom:8}}>
+          <img src={s.poster} style={{width:50, height:30, objectFit:'cover', borderRadius:5}} />
+          <div style={{flex:1}}>
+            <div style={{fontSize:13, fontWeight:600}}>{s.title}</div>
+            <div style={{fontSize:11, color:'rgba(232,244,255,0.4)'}}>{s.time}</div>
+          </div>
+          <button onClick={() => setStreamForm({ poster: s.poster, url: s.url, title: s.title, time: s.time, editId: s.id })} style={{...panelStyles.banBtn, background:'rgba(0,200,232,0.12)', border:'1px solid rgba(0,200,232,0.3)', color:'#00c8e8'}}>✏️</button>
+          <button onClick={() => deleteLiveStream(s.id)} style={panelStyles.banBtn}>🗑</button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
           </>
         )}
       </main>
