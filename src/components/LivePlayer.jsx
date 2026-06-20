@@ -4,6 +4,14 @@ export default function LivePlayer({ stream, onClose }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const [error, setError] = useState('');
+// Detect URL type at top of component (after the useEffect)
+const isIframe = stream?.url && (
+  stream.url.includes('youtube.com') ||
+  stream.url.includes('youtu.be') ||
+  stream.url.includes('twitch.tv') ||
+  stream.url.includes('/embed') ||
+  stream.url.startsWith('https://') && !stream.url.includes('.m3u8')
+);
 
   useEffect(() => {
     if (!stream?.url || !videoRef.current) return;
@@ -71,24 +79,35 @@ export default function LivePlayer({ stream, onClose }) {
             ✕
           </button>
         </div>
-
-        <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
-          <video
-            ref={videoRef}
-            controls
-            autoPlay
-            playsInline
-            style={{ width: '100%', height: '100%', display: 'block' }}
-          />
-          {error && (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontSize: 13, background: 'rgba(0,0,0,0.7)', textAlign: 'center', padding: 20,
-            }}>
-              {error}
-            </div>
-          )}
+<div style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
+  {isIframe ? (
+    <iframe
+      src={stream.url}
+      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+      allowFullScreen
+      allow="autoplay; fullscreen; encrypted-media"
+      scrolling="no"
+    />
+  ) : (
+    <>
+      <video
+        ref={videoRef}
+        controls
+        autoPlay
+        playsInline
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      />
+      {error && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 13, background: 'rgba(0,0,0,0.7)', textAlign: 'center', padding: 20,
+        }}>
+          {error}
         </div>
+      )}
+    </>
+  )}
+</div> 
       </div>
     </div>
   );
