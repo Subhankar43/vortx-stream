@@ -242,6 +242,28 @@ if (path === '/review/get' && request.method === 'GET') {
   return json({ status: true, reviews });
 }
 
+// GET /public/server-urls
+if (path === '/public/server-urls' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__server_urls__');
+  const urls = raw ? JSON.parse(raw) : {
+    videasy: 'https://player.videasy.to',
+    vidking: 'https://www.vidking.net',
+    vidfast: 'https://vidfast.pro',
+    vidzen: 'https://vidzen.fun',
+    '111movies': 'https://111movies.net',
+    rive: 'https://rivestream.ru',
+    vidsrc: 'https://vsembed.ru',
+    vidapi: 'https://vidapi.xyz',
+  };
+  return json({ status: true, urls });
+}
+// GET /public/custom-servers
+if (path === '/public/custom-servers' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__custom_servers__');
+  const servers = raw ? JSON.parse(raw) : [];
+  return json({ status: true, servers });
+}
+
   // ══════════════════════════════════════════════════════════════
   // ADMIN ENDPOINTS — all protected by x-admin-secret header
   // ══════════════════════════════════════════════════════════════
@@ -402,6 +424,35 @@ if (path === '/admin/live-streams/save' && request.method === 'POST') {
   const { streams } = body;
   if (!Array.isArray(streams)) return json({ status: false, msg: 'Must be array' });
   await VORTX_USERS.put('__live_streams__', JSON.stringify(streams));
+  return json({ status: true });
+}
+
+// GET /admin/server-urls
+if (path === '/admin/server-urls' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__server_urls__');
+  const urls = raw ? JSON.parse(raw) : {};
+  return json({ status: true, urls });
+}
+
+// POST /admin/server-urls/save
+if (path === '/admin/server-urls/save' && request.method === 'POST') {
+  const { urls } = body;
+  await VORTX_USERS.put('__server_urls__', JSON.stringify(urls));
+  return json({ status: true });
+}
+
+// GET /admin/custom-servers
+if (path === '/admin/custom-servers' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__custom_servers__');
+  const servers = raw ? JSON.parse(raw) : [];
+  return json({ status: true, servers });
+}
+
+// POST /admin/custom-servers/save
+if (path === '/admin/custom-servers/save' && request.method === 'POST') {
+  const { servers } = body;
+  if (!Array.isArray(servers)) return json({ status: false, msg: 'Must be array' });
+  await VORTX_USERS.put('__custom_servers__', JSON.stringify(servers));
   return json({ status: true });
 }
 

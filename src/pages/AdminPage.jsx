@@ -213,6 +213,11 @@ function AdminPanel({ onLogout }) {
   const [serverChecking, setServerChecking] = useState(false);
   const [liveStreams, setLiveStreams] = useState([]);
 const [streamForm, setStreamForm] = useState({ poster: '', url: '', title: '', time: '' });
+const [serverUrls, setServerUrls] = useState({});
+const [urlsSaving, setUrlsSaving] = useState(false);
+const [customServers, setCustomServers] = useState([]);
+const [customServerForm, setCustomServerForm] = useState({ label: '', id: '', baseUrl: '', moviePath: '/movie/{id}', tvPath: '/tv/{id}/{season}/{episode}' });
+const [customServersSaving, setCustomServersSaving] = useState(false);
 
   // ── Resize listener ──
   useEffect(() => {
@@ -241,7 +246,12 @@ const [streamForm, setStreamForm] = useState({ poster: '', url: '', title: '', t
       const maintData = await adminFetch('/admin/maintenance').catch(() => ({ enabled: false }));
       if (maintData.enabled !== undefined) setMaintenance(maintData.enabled);
     const streamData = await adminFetch('/admin/live-streams').catch(() => ({ streams: [] }));
-if (streamData.streams) setLiveStreams(streamData.streams);
+    const urlsData = await adminFetch('/admin/server-urls').catch(() => ({ urls: {} }));
+    if (urlsData.urls) setServerUrls(urlsData.urls);
+    const csData = await adminFetch('/admin/custom-servers').catch(() => ({ servers: [] }));
+if (csData.servers) setCustomServers(csData.servers);
+  
+    if (streamData.streams) setLiveStreams(streamData.streams);
     } catch (e) {
       setError('Failed to load data. Make sure your Worker has the admin endpoints deployed.');
     }
@@ -294,17 +304,19 @@ if (streamData.streams) setLiveStreams(streamData.streams);
   }
 
   async function checkServers() {
-    setServerChecking(true); setServerStatus({});
-    const servers = [
-      { id: 'videasy', url: 'https://player.videasy.to' },
-      { id: 'vidking', url: 'https://www.vidking.net' },
-      { id: 'vidfast', url: 'https://vidfast.pro' },
-      { id: 'rive',    url: 'https://rivestream.ru' },
-      { id: 'vidsrc',  url: 'https://vsembed.su' },
-      { id: 'vidzen',  url: 'https://vidzen.fun' },
-      { id: '111movies', url: 'https://111movies.net' },
-      { id: 'vidapi',  url: 'https://vidapi.xyz' },
-    ];
+  setServerChecking(true); setServerStatus({});
+  const servers = [
+    { id: 'videasy',   url: serverUrls.videasy   || 'https://player.videasy.to' },
+    { id: 'vidking',   url: serverUrls.vidking   || 'https://www.vidking.net' },
+    { id: 'vidfast',   url: serverUrls.vidfast   || 'https://vidfast.pro' },
+    { id: 'rive',      url: serverUrls.rive      || 'https://rivestream.ru' },
+    { id: 'vidsrc',    url: serverUrls.vidsrc    || 'https://vsembed.ru' },
+    { id: 'vidzen',    url: serverUrls.vidzen    || 'https://vidzen.fun' },
+    { id: '111movies', url: serverUrls['111movies'] || 'https://111movies.net' },
+    { id: 'vidapi',    url: serverUrls.vidapi    || 'https://vidapi.xyz' },
+    ...customServers.map(s => ({ id: s.id, url: s.baseUrl || s.moviePath.split('{')[0] })),
+  ];
+  
     const results = {};
     await Promise.all(servers.map(async s => {
       try { await fetch(s.url, { mode: 'no-cors', signal: AbortSignal.timeout(10000) }); results[s.id] = 'online'; }
@@ -639,16 +651,115 @@ async function deleteLiveStream(id) {
               <div>
                 <SectionHeader title="Server Status" sub="Check streaming server availability" />
                 <div style={{ marginBottom: 16 }}>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+  <div style={{ fontSize: 13, color: 'rgba(232,244,255,0.5)', marginBottom: 14 }}>Edit base URLs — changes apply site-wide within 30 mins</div>
+  {['videasy','vidking','vidfast','vidzen','111movies','rive','vidsrc','vidapi'].map(id => (
+    <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <span style={{ width: 90, fontSize: 12, color: 'rgba(232,244,255,0.5)', textTransform: 'capitalize' }}>{id}</span>
+      <input
+        value={serverUrls[id] || ''}
+        onChange={e => setServerUrls(prev => ({ ...prev, [id]: e.target.value }))}
+        style={{ flex: 1, padding: '8px 12px', background: 'rgba(0,200,232,0.05)', border: '1px solid rgba(0,200,232,0.2)', borderRadius: 8, color: '#e8f4ff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+      />
+    </div>
+  ))}
+
+  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+    <button onClick={async () => {
+      setUrlsSaving(true);
+      try {
+        await adminFetch('/admin/server-urls/save', { method: 'POST', body: JSON.stringify({ urls: serverUrls }) });
+        showToast('✅ Server URLs saved! Live in ~30 mins');
+      } catch { showToast('❌ Save failed'); }
+      setUrlsSaving(false);
+    }} disabled={urlsSaving} style={panelStyles.saveBtn}>{urlsSaving ? 'Saving…' : '💾 Save URLs'}</button>
+    <button onClick={() => {
+      localStorage.removeItem('vx-server-urls');
+      localStorage.removeItem('vx-server-urls-ts');
+      showToast('✅ Cache cleared — will re-fetch on next load');
+    }} style={{ ...panelStyles.saveBtn, background: 'rgba(255,255,255,0.06)', color: 'rgba(232,244,255,0.7)' }}>🔄 Force Refresh Cache</button>
+  </div>
+</div>
                   <button onClick={checkServers} disabled={serverChecking} style={{ padding: '10px 20px', borderRadius: 9, background: serverChecking ? 'rgba(0,200,232,0.15)' : 'linear-gradient(135deg,#00c8e8,#0ea5e9)', border: serverChecking ? '1px solid rgba(0,200,232,0.3)' : 'none', color: serverChecking ? '#00c8e8' : '#060d1a', fontSize: 13, fontWeight: 700, cursor: serverChecking ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {serverChecking ? (<><span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,200,232,0.3)', borderTop: '2px solid #00c8e8', display: 'inline-block', animation: 'vx-spin 0.7s linear infinite' }} />Checking…</>) : '🔍 Check All Servers'}
                   </button>
                 </div>
+                {/* Custom Servers */}
+<div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 14, padding: 20, marginTop: 20 }}>
+  <div style={{ fontSize: 13, color: 'rgba(232,244,255,0.5)', marginBottom: 14 }}>➕ Add Custom Server</div>
+  {[
+    { key: 'label', placeholder: 'Server Name (e.g. VidNew Server 9)' },
+    { key: 'id', placeholder: 'Server ID (e.g. vidnew) — no spaces' },
+    { key: 'baseUrl', placeholder: 'Base URL (e.g. https://vidnew.com)' },
+    { key: 'moviePath', placeholder: 'Movie Path (e.g. /movie/{id})' },
+    { key: 'tvPath', placeholder: 'TV Path (e.g. /tv/{id}/{season}/{episode})' },
+  ].map(f => (
+    <input key={f.key} value={customServerForm[f.key]} placeholder={f.placeholder}
+      onChange={e => setCustomServerForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+      style={{ width: '100%', padding: '8px 12px', background: 'rgba(0,200,232,0.05)', border: '1px solid rgba(0,200,232,0.2)', borderRadius: 8, color: '#e8f4ff', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 10, boxSizing: 'border-box' }}
+    />
+  ))}
+  <button onClick={async () => {
+    if (!customServerForm.label || !customServerForm.id || !customServerForm.baseUrl) { showToast('❌ Label, ID and Base URL required'); return; }
+    setCustomServersSaving(true);
+    const newServer = {
+      id: customServerForm.id,
+      label: customServerForm.label,
+      baseUrl: customServerForm.baseUrl,
+      moviePath: customServerForm.moviePath,
+      tvPath: customServerForm.tvPath,
+    };
+    const newList = customServerForm.editId
+      ? customServers.map(s => s.id === customServerForm.editId ? newServer : s)
+      : [...customServers, newServer];
+    try {
+      await adminFetch('/admin/custom-servers/save', { method: 'POST', body: JSON.stringify({ servers: newList }) });
+      setCustomServers(newList);
+      localStorage.removeItem('vx-custom-servers');
+      localStorage.removeItem('vx-custom-servers-ts');
+      setCustomServerForm({ label: '', id: '', baseUrl: '', moviePath: '/movie/{id}', tvPath: '/tv/{id}/{season}/{episode}' });
+      showToast('✅ Server saved!');
+    } catch { showToast('❌ Save failed'); }
+    setCustomServersSaving(false);
+  }} disabled={customServersSaving} style={panelStyles.saveBtn}>{customServersSaving ? 'Saving…' : '💾 Add Server'}</button>
+
+  {customServers.length > 0 && (
+    <div style={{ marginTop: 16 }}>
+      {customServers.map(s => (
+        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(0,200,232,0.04)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 10, marginBottom: 8 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</div>
+            <div style={{ fontSize: 11, color: 'rgba(232,244,255,0.4)' }}>{s.moviePath}</div>
+          </div>
+          <button onClick={() => setCustomServerForm({ label: s.label, id: s.id, baseUrl:s.baseUrl || '', moviePath: s.moviePath, tvPath: s.tvPath, editId: s.id })}
+            style={{ ...panelStyles.banBtn, background: 'rgba(0,200,232,0.12)', border: '1px solid rgba(0,200,232,0.3)', color: '#00c8e8' }}>✏️</button>
+          <button onClick={async () => {
+            const newList = customServers.filter(cs => cs.id !== s.id);
+            await adminFetch('/admin/custom-servers/save', { method: 'POST', body: JSON.stringify({ servers: newList }) });
+            setCustomServers(newList);
+            localStorage.removeItem('vx-custom-servers');
+            localStorage.removeItem('vx-custom-servers-ts');
+            showToast('✅ Removed');
+          }} style={panelStyles.banBtn}>🗑</button>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(220px,1fr))', gap: 10 }}>
                   {['videasy','vidking','vidfast','rive','vidsrc','vidapi','111movies','vidzen'].map(s => (
                     <div key={s} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(0,200,232,0.15)' : serverStatus[s] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(0,200,232,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
                       <span style={{ fontSize: 13, fontWeight: 600, textTransform: 'capitalize' }}>{s}</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(0,200,232,0.4)' : serverStatus[s] === 'online' ? '#7fffb0' : serverStatus[s] === 'offline' ? '#e50914' : '#666' }}>
                         {serverChecking ? '○ …' : serverStatus[s] === 'online' ? '● Online' : serverStatus[s] === 'offline' ? '● Offline' : '○ Unknown'}
+                      </span>
+                    </div>
+                  ))}
+                          {customServers.map(s => (
+                    <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(0,200,232,0.15)' : serverStatus[s.id] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s.id] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(0,200,232,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(0,200,232,0.4)' : serverStatus[s.id] === 'online' ? '#7fffb0' : serverStatus[s.id] === 'offline' ? '#e50914' : '#666' }}>
+                        {serverChecking ? '○ …' : serverStatus[s.id] === 'online' ? '● Online' : serverStatus[s.id] === 'offline' ? '● Offline' : '○ Unknown'}
                       </span>
                     </div>
                   ))}

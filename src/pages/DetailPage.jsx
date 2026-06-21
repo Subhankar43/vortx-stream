@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { tmdb, IMG, SERVERS, GENRE_MAP } from '../utils/tmdb';
 import Card from '../components/Card';
 import CardRow from '../components/CardRow';
 import { useAuth } from '../hooks/useAuth';
-import { WORKER_URL } from '../utils/tmdb';
+import { tmdb, IMG, SERVERS, GENRE_MAP, getAllServers, WORKER_URL } from '../utils/tmdb';
 
 export default function DetailPage({ item, type, onBack, onOpen }) {
   const { user, isInWatchlist, toggleWatchlist, saveProgress, getProgress } = useAuth();
@@ -26,6 +25,7 @@ const [reviews, setReviews]       = useState([]);
 const [myRating, setMyRating]     = useState(0);
 const [reviewText, setReviewText] = useState('');
 const [submitting, setSubmitting] = useState(false);
+const [allServers, setAllServers] = useState(SERVERS);
 
 useEffect(() => { if (item) loadReviews(); }, [item?.id]);
   useEffect(() => {
@@ -42,6 +42,10 @@ useEffect(() => { if (item) loadReviews(); }, [item?.id]);
   useEffect(() => {
     if (detail && type === 'tv') loadEpisodes(selSeason);
   }, [selSeason, detail]);
+
+useEffect(() => {
+  getAllServers().then(setAllServers);
+}, []);
 
   // ✅ ADD THIS — Watch tracking (paste exactly here, after line 36)
   useEffect(() => {
@@ -109,37 +113,37 @@ async function submitReview() {
     setEpisodes(data.episodes || []);
   }
 
-  function getEmbedUrl(srv, s, e) {
-    const serverObj = SERVERS.find(sv => sv.id === srv);
-    if (!serverObj) return '';
-    if (type === 'movie') return serverObj.movie(item.id);
-    return serverObj.tv(item.id, s, e);
-  }
+  async function getEmbedUrl(srv, s, e) {
+  const serverObj = allServers.find(sv => sv.id === srv);
+  if (!serverObj) return '';
+  if (type === 'movie') return await serverObj.movie(item.id);
+  return await serverObj.tv(item.id, s, e);
+}
 
-  function playNow() {
-    const url = getEmbedUrl(server, selSeason, selEp);
-    setIframeUrl(url);
+  async function playNow() {
+  const url = await getEmbedUrl(server, selSeason, selEp);
+  setIframeUrl(url);
     setPlaying(true);
     if (user) saveProgress(item.id, type, 5, type === 'tv' ? selSeason : null, type === 'tv' ? selEp : null);
     setTimeout(() => document.getElementById('playerWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   }
 
-  function playEpisode(season, episode) {
+  async function playEpisode(season, episode) {
     setSelSeason(season);
     setSelEp(episode);
-    const url = getEmbedUrl(server, season, episode);
+    const url = await getEmbedUrl(server, season, episode);
     setIframeUrl(url);
     setPlaying(true);
     if (user) saveProgress(item.id, type, 5, season, episode);
   }
 
-  function handleServerChange(srv) {
-    setServer(srv);
-    if (playing) {
-      const url = getEmbedUrl(srv, selSeason, selEp);
-      setIframeUrl(url);
-    }
+  async function handleServerChange(srv) {
+  setServer(srv);
+  if (playing) {
+    const url = await getEmbedUrl(srv, selSeason, selEp);
+    setIframeUrl(url);
   }
+}
 
   function handleWl() {
     const added = toggleWatchlist(detail || item, type);
@@ -218,11 +222,17 @@ async function submitReview() {
               value={server}
               onChange={e => handleServerChange(e.target.value)}
             >
-              {SERVERS.map(s => (
+              {allServers.map(s => (
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>
             <span className="server-status">● Live</span>
+            {type === 'movie' && (
+  <button className="ep-play-btn" onClick={playNow}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Play Movie
+  </button>
+)}
           </div>
 
           {/* TV episode bar */}

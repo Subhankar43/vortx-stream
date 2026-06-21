@@ -39,9 +39,17 @@ export function AuthProvider({ children }) {
     if (banData.banned) { logout(); return; }
 
       const [wlRes, prRes] = await Promise.all([
-        fetch(`${WORKER_URL}/watchlist/get?email=${encodeURIComponent(email)}`),
-        fetch(`${WORKER_URL}/progress/get?email=${encodeURIComponent(email)}`),
-      ]);
+      fetch(`${WORKER_URL}/watchlist/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email }),
+}),
+fetch(`${WORKER_URL}/progress/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email }),
+}),
+         ]);
       if (wlRes.ok) {
         const wl = await wlRes.json();
         if (wl.watchlist) localStorage.setItem(`vx-watchlist-${email}`, JSON.stringify(wl.watchlist));

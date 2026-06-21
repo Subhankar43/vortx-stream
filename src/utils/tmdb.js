@@ -2,18 +2,79 @@ export const WORKER_URL = import.meta.env.VITE_WORKER_URL;
 export const TMDB_KEY   = import.meta.env.VITE_TMDB_KEY;
 export const TMDB_BASE  = 'https://api.themoviedb.org/3';
 export const IMG        = 'https://image.tmdb.org/t/p/';
+// Add this function
+const SERVER_CACHE_MS = 30 * 60 * 1000; // 30 mins
+
+export async function getServerUrls() {
+  const DEFAULTS = {
+    videasy: 'https://player.videasy.to',
+    vidking: 'https://www.vidking.net',
+    vidfast: 'https://vidfast.pro',
+    vidzen: 'https://vidzen.fun',
+    '111movies': 'https://111movies.net',
+    rive: 'https://rivestream.ru',
+    vidsrc: 'https://vsembed.ru',
+    vidapi: 'https://vidapi.xyz',
+  };
+ try {
+    const ts = localStorage.getItem('vx-server-urls-ts');
+    const cached = localStorage.getItem('vx-server-urls');
+    if (cached && ts && Date.now() - Number(ts) < SERVER_CACHE_MS) {
+      return JSON.parse(cached);
+    }
+    const res = await fetch(`${WORKER_URL}/public/server-urls`);
+    const data = await res.json();
+    if (data.urls) {
+      localStorage.setItem('vx-server-urls', JSON.stringify(data.urls));
+      localStorage.setItem('vx-server-urls-ts', String(Date.now()));
+      return data.urls;
+    }
+  } catch {}
+  return DEFAULTS;
+}
+
+const CUSTOM_SERVERS_CACHE_MS = 30 * 60 * 1000;
+
+export async function getCustomServers() {
+  try {
+    const ts = localStorage.getItem('vx-custom-servers-ts');
+    const cached = localStorage.getItem('vx-custom-servers');
+    if (cached && ts && Date.now() - Number(ts) < CUSTOM_SERVERS_CACHE_MS) {
+      return JSON.parse(cached);
+    }
+    const res = await fetch(`${WORKER_URL}/public/custom-servers`);
+    const data = await res.json();
+    if (data.servers) {
+      localStorage.setItem('vx-custom-servers', JSON.stringify(data.servers));
+      localStorage.setItem('vx-custom-servers-ts', String(Date.now()));
+      return data.servers;
+    }
+  } catch {}
+  return [];
+}
 
 // Video servers
 export const SERVERS = [
-    { id: 'videasy', label: 'Videasy (Server 1)', movie: (id) => `https://player.videasy.to/movie/${id}`, tv: (id, s, e) => `https://player.videasy.to/tv/${id}/${s}/${e}` },
-  { id: 'vidking', label: 'VidKing (Server 2)',  movie: (id) => `https://www.vidking.net/embed/movie/${id}`,   tv: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
-    { id: 'vidfast', label: 'VidFast (Server 3)', movie: (id) => `https://vidfast.pro/movie/${id}?autoPlay=true`, tv: (id,s,e) => `https://vidfast.pro/tv/${id}/${s}/${e}?autoPlay=true` },
-  { id: 'vidzen',  label: 'VidZen (Server 4)',   movie: (id) => `https://vidzen.fun/movie/${id}`, tv: (id,s,e) => `https://vidzen.fun/tv/${id}/${s}/${e}` },
-  { id: '111movies',label: '111Movies (Server 5)',movie: (id) => `https://111movies.net/movie/${id}`, tv: (id,s,e) => `https://111movies.net/tv/${id}/${s}/${e}` },
-    { id: 'rive',    label: 'Rive (Server 6)',     movie: (id) => `https://rivestream.ru/embed?type=movie&id=${id}`, tv: (id,s,e) => `https://rivestream.ru/embed?type=tv&id=${id}&season=${s}&episode=${e}` },
-  { id: 'vidsrc',  label: 'VidSrc (Server 7)',   movie: (id) => `https://vsembed.ru/embed/movie/${id}`, tv: (id, s, e) => `https://vsembed.ru/embed/tv/${id}/${s}/${e}` },
- { id: 'vidapi',  label: 'VidAPI (Server 8)',   movie: (id) => `https://vidapi.xyz/embed/movie/${id}`, tv: (id, s, e) => `https://vidapi.xyz/embed/tv/${id}/${s}/${e}` },
+  { id: 'videasy',   label: 'Videasy (Server 1)',   movie: async (id)      => `${(await getServerUrls()).videasy}/movie/${id}`,                    tv: async (id,s,e) => `${(await getServerUrls()).videasy}/tv/${id}/${s}/${e}` },
+  { id: 'vidking',   label: 'VidKing (Server 2)',    movie: async (id)      => `${(await getServerUrls()).vidking}/embed/movie/${id}`,              tv: async (id,s,e) => `${(await getServerUrls()).vidking}/embed/tv/${id}/${s}/${e}` },
+  { id: 'vidfast',   label: 'VidFast (Server 3)',    movie: async (id)      => `${(await getServerUrls()).vidfast}/movie/${id}?autoPlay=true`,      tv: async (id,s,e) => `${(await getServerUrls()).vidfast}/tv/${id}/${s}/${e}?autoPlay=true` },
+  { id: 'vidzen',    label: 'VidZen (Server 4)',     movie: async (id)      => `${(await getServerUrls()).vidzen}/movie/${id}`,                     tv: async (id,s,e) => `${(await getServerUrls()).vidzen}/tv/${id}/${s}/${e}` },
+  { id: '111movies', label: '111Movies (Server 5)',  movie: async (id)      => `${(await getServerUrls())['111movies']}/movie/${id}`,               tv: async (id,s,e) => `${(await getServerUrls())['111movies']}/tv/${id}/${s}/${e}` },
+  { id: 'rive',      label: 'Rive (Server 6)',       movie: async (id)      => `${(await getServerUrls()).rive}/embed?type=movie&id=${id}`,         tv: async (id,s,e) => `${(await getServerUrls()).rive}/embed?type=tv&id=${id}&season=${s}&episode=${e}` },
+  { id: 'vidsrc',    label: 'VidSrc (Server 7)',     movie: async (id)      => `${(await getServerUrls()).vidsrc}/embed/movie/${id}`,               tv: async (id,s,e) => `${(await getServerUrls()).vidsrc}/embed/tv/${id}/${s}/${e}` },
+  { id: 'vidapi',    label: 'VidAPI (Server 8)',     movie: async (id)      => `${(await getServerUrls()).vidapi}/embed/movie/${id}`,               tv: async (id,s,e) => `${(await getServerUrls()).vidapi}/embed/tv/${id}/${s}/${e}` },
 ];
+
+export async function getAllServers() {
+  const custom = await getCustomServers();
+  const customFormatted = custom.map(s => ({
+    id: s.id,
+    label: s.label,
+  movie: async (id) => (s.baseUrl || '') + s.moviePath.replace('{id}', id),
+tv: async (id, season, episode) => (s.baseUrl || '') + s.tvPath.replace('{id}', id).replace('{season}', season).replace('{episode}', episode),
+  }));
+  return [...SERVERS, ...customFormatted];
+}
 
 export const GENRE_MAP = {
   28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime',

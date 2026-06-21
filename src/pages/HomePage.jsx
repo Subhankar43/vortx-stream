@@ -102,7 +102,7 @@ async function loadRecommendations() {
   async function loadContinue() {
     const prog = getProgressData();
     const items = Object.values(prog)
-      .filter(p => p.pct > 2 && p.pct < 95)
+      .filter(p => p.pct > 2 && p.pct < 95 && p.type !== 'live')
       .sort((a, b) => b.ts - a.ts)
       .slice(0, 10);
     if (!items.length) { setContinueItems([]); return; }
@@ -113,6 +113,13 @@ async function loadRecommendations() {
     );
     setContinueItems(enriched.filter(Boolean));
   }
+function removeContinue(itemId, itemType) {
+  const key = `vx-progress-${user.email}`;
+  const prog = JSON.parse(localStorage.getItem(key) || '{}');
+  delete prog[`${itemType}-${itemId}`];
+  localStorage.setItem(key, JSON.stringify(prog));
+  setContinueItems(prev => prev.filter(i => i.id !== itemId));
+}
 
   return (
     <div className="page">
@@ -124,7 +131,19 @@ async function loadRecommendations() {
           <div className="section-head">
             <h2 className="section-title"><span className="title-bar" />Continue Watching</h2>
           </div>
-          <CardRow items={continueItems} type="mixed" loading={false} onOpen={(item, _) => onOpen(item, item._p?.type || 'movie')} />
+          <div className="card-row">
+  <div className="row-track">
+    {continueItems.map(item => (
+      <div key={item.id} style={{ position: 'relative', flexShrink: 0 }}>
+        <button onClick={(e) => { e.stopPropagation(); removeContinue(item.id, item._p?.type); }}
+          style={{ position:'absolute', top:6, right:6, zIndex:10, width:22, height:22, borderRadius:'50%', background:'rgba(0,0,0,0.7)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>
+          ✕
+        </button>
+        <Card item={item} type={item._p?.type || 'movie'} onOpen={(i, t) => onOpen(i, t)} />
+      </div>
+    ))}
+  </div>
+</div>
         </section>
       )}
 <div className="section">
