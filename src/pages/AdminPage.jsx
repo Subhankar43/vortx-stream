@@ -728,7 +728,7 @@ async function deleteLiveStream(id) {
       {customServers.map(s => (
         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(0,200,232,0.04)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 10, marginBottom: 8 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</div>
             <div style={{ fontSize: 11, color: 'rgba(232,244,255,0.4)' }}>{s.moviePath}</div>
           </div>
           <button onClick={() => setCustomServerForm({ label: s.label, id: s.id, baseUrl:s.baseUrl || '', moviePath: s.moviePath, tvPath: s.tvPath, editId: s.id })}
@@ -757,7 +757,7 @@ async function deleteLiveStream(id) {
                   ))}
                           {customServers.map(s => (
                     <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(0,200,232,0.15)' : serverStatus[s.id] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s.id] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(0,200,232,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(0,200,232,0.4)' : serverStatus[s.id] === 'online' ? '#7fffb0' : serverStatus[s.id] === 'offline' ? '#e50914' : '#666' }}>
                         {serverChecking ? '○ …' : serverStatus[s.id] === 'online' ? '● Online' : serverStatus[s.id] === 'offline' ? '● Offline' : '○ Unknown'}
                       </span>
