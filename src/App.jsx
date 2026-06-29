@@ -7,6 +7,7 @@ import MoviesPage from './pages/MoviesPage';
 import SeriesPage from './pages/SeriesPage';
 import SearchPage from './pages/SearchPage';
 import DetailPage from './pages/DetailPage';
+import AnimePage from './pages/AnimePage';
 import AdminPage from './pages/AdminPage';
 import { LoginModal, SignupModal, WatchlistModal } from './components/AuthModals';
 import { WORKER_URL } from './utils/tmdb';
@@ -288,6 +289,7 @@ useEffect(() => {
           <Route path="/" element={<HomePage onOpen={openDetail} />} />
           <Route path="/movies" element={<MoviesPage onOpen={openDetail} />} />
           <Route path="/series" element={<SeriesPage onOpen={openDetail} />} />
+          <Route path="/anime" element={<AnimePage onOpen={openDetail} />} />
           <Route path="*" element={<HomePage onOpen={openDetail} />} />
         </Routes>
       )}

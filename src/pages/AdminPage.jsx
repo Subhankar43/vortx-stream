@@ -218,6 +218,9 @@ const [urlsSaving, setUrlsSaving] = useState(false);
 const [customServers, setCustomServers] = useState([]);
 const [customServerForm, setCustomServerForm] = useState({ label: '', id: '', baseUrl: '', moviePath: '/movie/{id}', tvPath: '/tv/{id}/{season}/{episode}' });
 const [customServersSaving, setCustomServersSaving] = useState(false);
+const [animeServers, setAnimeServers] = useState([]);
+const [animeServerForm, setAnimeServerForm] = useState({ label: '', id: '', baseUrl: '', moviePath: '/stream/mal/{mal_id}/{ep}/{language}', tvPath: '' });
+const [animeServersSaving, setAnimeServersSaving] = useState(false);
 
   // ── Resize listener ──
   useEffect(() => {
@@ -250,6 +253,8 @@ const [customServersSaving, setCustomServersSaving] = useState(false);
     if (urlsData.urls) setServerUrls(urlsData.urls);
     const csData = await adminFetch('/admin/custom-servers').catch(() => ({ servers: [] }));
 if (csData.servers) setCustomServers(csData.servers);
+const animeData = await adminFetch('/admin/anime-servers').catch(() => ({ servers: [] }));
+if (animeData.servers) setAnimeServers(animeData.servers);
   
     if (streamData.streams) setLiveStreams(streamData.streams);
     } catch (e) {
@@ -315,6 +320,7 @@ if (csData.servers) setCustomServers(csData.servers);
     { id: '111movies', url: serverUrls['111movies'] || 'https://111movies.net' },
     { id: 'vidapi',    url: serverUrls.vidapi    || 'https://vidapi.xyz' },
     ...customServers.map(s => ({ id: s.id, url: s.baseUrl || s.moviePath.split('{')[0] })),
+    ...animeServers.map(s => ({ id: s.id, url: s.baseUrl || s.moviePath.split('{')[0] })),
   ];
   
     const results = {};
@@ -651,8 +657,10 @@ async function deleteLiveStream(id) {
               <div>
                 <SectionHeader title="Server Status" sub="Check streaming server availability" />
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
-  <div style={{ fontSize: 13, color: 'rgba(232,244,255,0.5)', marginBottom: 14 }}>Edit base URLs — changes apply site-wide within 30 mins</div>
+<div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap', marginBottom: 20 }}>
+<div style={{ flex: 1, minWidth: 280, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(0,200,232,0.1)', borderRadius: 14, padding: 20 }}>
+  <div style={{ fontSize: 13, color: '#00c8e8', marginBottom: 4, fontWeight: 600 }}>🎬 Movie & Series</div>
+  <div style={{ fontSize: 12, color: 'rgba(232,244,255,0.5)', marginBottom: 14 }}>Edit base URLs — changes apply site-wide within 30 mins</div>
   {['videasy','vidking','vidfast','vidzen','111movies','rive','vidsrc','vidapi'].map(id => (
     <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
       <span style={{ width: 90, fontSize: 12, color: 'rgba(232,244,255,0.5)', textTransform: 'capitalize' }}>{id}</span>
@@ -676,9 +684,64 @@ async function deleteLiveStream(id) {
     <button onClick={() => {
       localStorage.removeItem('vx-server-urls');
       localStorage.removeItem('vx-server-urls-ts');
+      localStorage.removeItem('vx-anime-servers');
+      localStorage.removeItem('vx-anime-servers-ts');
       showToast('✅ Cache cleared — will re-fetch on next load');
     }} style={{ ...panelStyles.saveBtn, background: 'rgba(255,255,255,0.06)', color: 'rgba(232,244,255,0.7)' }}>🔄 Force Refresh Cache</button>
   </div>
+  </div>
+
+{/* Anime Servers */}
+<div style={{ flex: 1, minWidth: 280, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: 14, padding: 20, marginTop: isMobile ? 20 : 0 }}>
+  <div style={{ fontSize: 13, color: '#a78bfa', marginBottom: 18, fontWeight: 600 }}>⛩️ Anime Servers</div>
+  {[
+    { key: 'label', placeholder: 'Server Name (e.g. MegaPlay)' },
+    { key: 'id', placeholder: 'Server ID (e.g. megaplay) — no spaces' },
+    { key: 'baseUrl', placeholder: 'Base URL (e.g. https://megaplay.buzz)' },
+    { key: 'moviePath', placeholder: 'Path template (e.g. /stream/mal/{mal_id}/{ep}/{language})' },
+  ].map(f => (
+    <input key={f.key} value={animeServerForm[f.key]} placeholder={f.placeholder}
+      onChange={e => setAnimeServerForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+      style={{ width: '100%', padding: '8px 12px', background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 8, color: '#e8f4ff', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 10, boxSizing: 'border-box' }}
+    />
+  ))}
+  <button onClick={async () => {
+    if (!animeServerForm.label || !animeServerForm.id || !animeServerForm.baseUrl) { showToast('❌ Label, ID and Base URL required'); return; }
+    setAnimeServersSaving(true);
+    const newServer = { id: animeServerForm.id, label: animeServerForm.label, baseUrl: animeServerForm.baseUrl, moviePath: animeServerForm.moviePath };
+    const newList = animeServerForm.editId
+      ? animeServers.map(s => s.id === animeServerForm.editId ? newServer : s)
+      : [...animeServers, newServer];
+    try {
+      await adminFetch('/admin/anime-servers/save', { method: 'POST', body: JSON.stringify({ servers: newList }) });
+      setAnimeServers(newList);
+      setAnimeServerForm({ label: '', id: '', baseUrl: '', moviePath: '/stream/mal/{mal_id}/{ep}/{language}', tvPath: '' });
+      showToast('✅ Anime server saved!');
+    } catch { showToast('❌ Save failed'); }
+    setAnimeServersSaving(false);
+  }} disabled={animeServersSaving} style={{ ...panelStyles.saveBtn, background: 'linear-gradient(135deg,#a78bfa,#7c3aed)' }}>{animeServersSaving ? 'Saving…' : '💾 Add Anime Server'}</button>
+
+  {animeServers.length > 0 && (
+    <div style={{ marginTop: 16 }}>
+      {animeServers.map(s => (
+        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: 10, marginBottom: 8 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</div>
+            <div style={{ fontSize: 11, color: 'rgba(232,244,255,0.4)' }}>{s.moviePath}</div>
+          </div>
+          <button onClick={() => setAnimeServerForm({ label: s.label, id: s.id, baseUrl: s.baseUrl, moviePath: s.moviePath, editId: s.id })}
+            style={{ ...panelStyles.banBtn, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#a78bfa' }}>✏️</button>
+          <button onClick={async () => {
+            const newList = animeServers.filter(as => as.id !== s.id);
+            await adminFetch('/admin/anime-servers/save', { method: 'POST', body: JSON.stringify({ servers: newList }) });
+            setAnimeServers(newList);
+            showToast('✅ Removed');
+          }} style={panelStyles.banBtn}>🗑</button>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 </div>
                   <button onClick={checkServers} disabled={serverChecking} style={{ padding: '10px 20px', borderRadius: 9, background: serverChecking ? 'rgba(0,200,232,0.15)' : 'linear-gradient(135deg,#00c8e8,#0ea5e9)', border: serverChecking ? '1px solid rgba(0,200,232,0.3)' : 'none', color: serverChecking ? '#00c8e8' : '#060d1a', fontSize: 13, fontWeight: 700, cursor: serverChecking ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {serverChecking ? (<><span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,200,232,0.3)', borderTop: '2px solid #00c8e8', display: 'inline-block', animation: 'vx-spin 0.7s linear infinite' }} />Checking…</>) : '🔍 Check All Servers'}
@@ -754,11 +817,27 @@ async function deleteLiveStream(id) {
                         {serverChecking ? '○ …' : serverStatus[s] === 'online' ? '● Online' : serverStatus[s] === 'offline' ? '● Offline' : '○ Unknown'}
                       </span>
                     </div>
-                  ))}
+                  ))}                
                           {customServers.map(s => (
                     <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(0,200,232,0.15)' : serverStatus[s.id] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s.id] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(0,200,232,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(0,200,232,0.4)' : serverStatus[s.id] === 'online' ? '#7fffb0' : serverStatus[s.id] === 'offline' ? '#e50914' : '#666' }}>
+                        {serverChecking ? '○ …' : serverStatus[s.id] === 'online' ? '● Online' : serverStatus[s.id] === 'offline' ? '● Offline' : '○ Unknown'}
+                      </span>
+                    </div>
+                  ))}
+                  {customServers.map(s => (
+                    <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(0,200,232,0.15)' : serverStatus[s.id] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s.id] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(0,200,232,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(0,200,232,0.4)' : serverStatus[s.id] === 'online' ? '#7fffb0' : serverStatus[s.id] === 'offline' ? '#e50914' : '#666' }}>
+                        {serverChecking ? '○ …' : serverStatus[s.id] === 'online' ? '● Online' : serverStatus[s.id] === 'offline' ? '● Offline' : '○ Unknown'}
+                      </span>
+                    </div>
+                  ))}
+                  {animeServers.map(s => (
+                    <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${serverChecking ? 'rgba(167,139,250,0.15)' : serverStatus[s.id] === 'online' ? 'rgba(127,255,176,0.2)' : serverStatus[s.id] === 'offline' ? 'rgba(229,9,20,0.2)' : 'rgba(167,139,250,0.1)'}`, borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border 0.3s' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{s.id}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: serverChecking ? 'rgba(167,139,250,0.4)' : serverStatus[s.id] === 'online' ? '#7fffb0' : serverStatus[s.id] === 'offline' ? '#e50914' : '#666' }}>
                         {serverChecking ? '○ …' : serverStatus[s.id] === 'online' ? '● Online' : serverStatus[s.id] === 'offline' ? '● Offline' : '○ Unknown'}
                       </span>
                     </div>

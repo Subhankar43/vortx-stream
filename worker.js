@@ -455,7 +455,19 @@ if (path === '/admin/custom-servers/save' && request.method === 'POST') {
   await VORTX_USERS.put('__custom_servers__', JSON.stringify(servers));
   return json({ status: true });
 }
+// GET /admin/anime-servers
+if (path === '/admin/anime-servers' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__anime_servers__') || '[]';
+  return json({ status: true, servers: JSON.parse(raw) });
+}
 
+// POST /admin/anime-servers/save
+if (path === '/admin/anime-servers/save' && request.method === 'POST') {
+  const { servers } = body;
+  if (!Array.isArray(servers)) return json({ status: false, msg: 'Must be array' });
+  await VORTX_USERS.put('__anime_servers__', JSON.stringify(servers));
+  return json({ status: true });
+}
     return json({ status: false, msg: 'Unknown admin endpoint' }, 404);
   }
 // GET /homepage-notice — public
@@ -510,7 +522,11 @@ if (path === '/live-streams' && request.method === 'GET') {
   const raw = await VORTX_USERS.get('__live_streams__') || '[]';
   return json({ streams: JSON.parse(raw) });
 }
-
+// GET /anime-servers — public
+if (path === '/anime-servers' && request.method === 'GET') {
+  const raw = await VORTX_USERS.get('__anime_servers__') || '[]';
+  return json({ servers: JSON.parse(raw) });
+}
   return json({ status: false, msg: 'Bhaag Bhosdike' }, 404);
 }
 

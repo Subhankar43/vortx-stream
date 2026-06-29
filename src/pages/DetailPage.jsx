@@ -3,6 +3,7 @@ import Card from '../components/Card';
 import CardRow from '../components/CardRow';
 import { useAuth } from '../hooks/useAuth';
 import { tmdb, IMG, SERVERS, GENRE_MAP, getAllServers, WORKER_URL } from '../utils/tmdb';
+import { getAnimeById, getAnimeRelations, getAnimeServers, buildAnimeEmbedUrl } from '../utils/jikan';
 
 export default function DetailPage({ item, type, onBack, onOpen }) {
   const { user, isInWatchlist, toggleWatchlist, saveProgress, getProgress } = useAuth();
@@ -26,6 +27,11 @@ const [myRating, setMyRating]     = useState(0);
 const [reviewText, setReviewText] = useState('');
 const [submitting, setSubmitting] = useState(false);
 const [allServers, setAllServers] = useState(SERVERS);
+const [animeSeasons, setAnimeSeasons] = useState([]); // related seasons (mal_ids)
+const [selAnimeId,   setSelAnimeId]   = useState(item?.mal_id || item?.id);
+const [language, setLanguage] = useState('sub'); // sub or dub — appended to MegaPlay URL
+const [animeServerList, setAnimeServerList] = useState([]);
+const [animeServer,     setAnimeServer]     = useState('');
 
 useEffect(() => { if (item) loadReviews(); }, [item?.id]);
   useEffect(() => {
@@ -42,6 +48,15 @@ useEffect(() => { if (item) loadReviews(); }, [item?.id]);
   useEffect(() => {
     if (detail && type === 'tv') loadEpisodes(selSeason);
   }, [selSeason, detail]);
+
+  useEffect(() => {
+  if (type === 'anime') {
+    getAnimeServers().then(list => {
+      setAnimeServerList(list);
+      if (list.length > 0) setAnimeServer(list[0].id);
+    });
+  }
+}, [type]);
 
 useEffect(() => {
   getAllServers().then(setAllServers);
@@ -66,6 +81,17 @@ useEffect(() => {
   }, [playing, item?.id]);
 
   async function loadDetail() {
+        if (type === 'anime') {
+      const det = await getAnimeById(selAnimeId);
+      const relations = await getAnimeRelations(selAnimeId);
+      setDetail(det);
+      setAnimeSeasons(relations);
+      setCast([]);
+      setSimilar([]);
+      setInWl(isInWatchlist(item.id, type));
+      setLoading(false);
+      return;
+    }
     const [det, credits, sim] = await Promise.all([
       tmdb(`/${type}/${item.id}`),
       tmdb(`/${type}/${item.id}/credits`),
@@ -113,7 +139,11 @@ async function submitReview() {
     setEpisodes(data.episodes || []);
   }
 
-  async function getEmbedUrl(srv, s, e) {
+async function getEmbedUrl(srv, s, e) {
+  if (type === 'anime') {
+    const serverObj = animeServerList.find(s => s.id === animeServer) || animeServerList[0];
+    return buildAnimeEmbedUrl(serverObj, selAnimeId, e, language);
+  }
   const serverObj = allServers.find(sv => sv.id === srv);
   if (!serverObj) return '';
   if (type === 'movie') return await serverObj.movie(item.id);
@@ -175,7 +205,7 @@ async function submitReview() {
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
         </button>
-        {backdrop && <div className="detail-hero-bg" style={{ backgroundImage: `url(${IMG}original${backdrop})` }} />}
+        {backdrop && <div className="detail-hero-bg" style={{ backgroundImage: `url(${backdrop.startsWith('http') ? backdrop : IMG + 'original' + backdrop})` }} />}
         <div className="detail-hero-overlay" />
         <div className="detail-hero-content">
           <h1 className="detail-title">{title}</h1>
@@ -194,7 +224,7 @@ async function submitReview() {
           <div className="detail-btns">
             <button className="d-btn d-btn-play" onClick={playNow}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              {type === 'tv' ? `Play S${selSeason} E${selEp}` : 'Watch Now'}
+              {type === 'tv' ? `Play S${selSeason} E${selEp}` : type === 'anime' ? `Play Episode ${selEp}` : 'Watch Now'}
             </button>
             {trailerKey && (
   <button className="d-btn d-btn-wl" onClick={() => setTrailerOpen(true)}>
@@ -215,7 +245,7 @@ async function submitReview() {
           <div className="player-label">Now Playing</div>
 
           {/* Server Dropdown */}
-          <div className="server-select-wrap">
+         {type !== 'anime' && <div className="server-select-wrap">
             <span className="server-label">Server:</span>
             <select
               className="server-select"
@@ -233,8 +263,18 @@ async function submitReview() {
     Play Movie
   </button>
 )}
-          </div>
-
+          </div>}
+          {/* Anime episode bar */}
+        {type === 'anime' && (
+            <div className="server-select-wrap">
+              <span className="server-label">Server:</span>
+              <select className="server-select" value={animeServer} onChange={e => setAnimeServer(e.target.value)}>
+                {animeServerList.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+              <span className="server-status">● Live</span>
+            </div>
+          )}
+         
           {/* TV episode bar */}
           {type === 'tv' && seasons.length > 0 && (
             <div className="ep-bar">
@@ -246,6 +286,30 @@ async function submitReview() {
                   <option key={i + 1} value={i + 1}>Episode {i + 1}</option>
                 ))}
               </select>
+              <button className="ep-play-btn" onClick={playNow}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Play Episode
+              </button>
+            </div>
+          )}
+          {/* Anime episode bar */}
+          {type === 'anime' && (
+            <div className="ep-bar">
+              {animeSeasons.length > 0 && (
+                <select className="ep-select" value={selAnimeId} onChange={e => setSelAnimeId(Number(e.target.value))}>
+                  <option value={item.mal_id || item.id}>Season 1</option>
+                  {animeSeasons.map(s => <option key={s.mal_id} value={s.mal_id}>{s.title}</option>)}
+                </select>
+              )}
+              <select className="ep-select" value={selEp} onChange={e => setSelEp(Number(e.target.value))}>
+                {Array.from({ length: detail?.episodes || 24 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>Episode {i + 1}</option>
+                ))}
+              </select>
+              <select className="ep-select" value={language} onChange={e => setLanguage(e.target.value)}>
+  <option value="sub">Sub</option>
+  <option value="dub">Dub</option>
+</select>
               <button className="ep-play-btn" onClick={playNow}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 Play Episode
@@ -274,7 +338,7 @@ async function submitReview() {
               onClick={playNow}
             >
               {poster && (
-                <img src={`${IMG}w300${poster}`} alt={title} style={{ width: 120, borderRadius: 8, opacity: 0.5 }} />
+            <img src={poster.startsWith('http') ? poster : `${IMG}w300${poster}`} alt={title} style={{ width: 120, borderRadius: 8, opacity: 0.5 }} />
               )}
               <div style={{ fontSize: 14, color: 'var(--text3)' }}>Click to play</div>
             </div>

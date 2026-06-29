@@ -23,7 +23,7 @@ export default function Card({ item, type, onOpen }) {
   const title = item.title || item.name || '';
   const year  = (item.release_date || item.first_air_date || '').slice(0, 4);
   const rating = item.vote_average ? item.vote_average.toFixed(1) : '';
-  const poster = item.poster_path ? `${IMG}w300${item.poster_path}` : null;
+  const poster = item.poster_path ? (item.poster_path.startsWith('http') ? item.poster_path : `${IMG}w300${item.poster_path}`) : null;
 
   function handleWl(e) {
     e.stopPropagation();

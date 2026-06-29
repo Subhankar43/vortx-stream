@@ -51,6 +51,7 @@ export default function Navbar({ onSearch, onLoginOpen, onSignupOpen, onWatchlis
             <button className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => navTo('home')}>Home</button>
             <button className={`nav-link ${currentPage === 'movies' ? 'active' : ''}`} onClick={() => navTo('movies')}>Movies</button>
             <button className={`nav-link ${currentPage === 'series' ? 'active' : ''}`} onClick={() => navTo('series')}>Series</button>
+            <button className={`nav-link ${currentPage === 'anime' ? 'active' : ''}`} onClick={() => navTo('anime')}>Anime</button>
             <a href="https://vortx.pages.dev" className="nav-link" target="_blank" rel="noreferrer">Portfolio</a>
           </div>
         </div>

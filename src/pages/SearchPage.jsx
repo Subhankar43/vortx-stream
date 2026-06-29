@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { tmdb } from '../utils/tmdb';
+import { searchAnime } from '../utils/jikan';
 import Card, { SkeletonCard } from '../components/Card';
+
+const ANIMATION_GENRE_ID = 16;
 
 export default function SearchPage({ query, onOpen }) {
   const [results, setResults] = useState([]);
@@ -9,11 +12,17 @@ export default function SearchPage({ query, onOpen }) {
   useEffect(() => {
     if (!query) return;
     setLoading(true);
-    tmdb('/search/multi', { query, include_adult: false }).then(data => {
-      const filtered = (data.results || []).filter(r =>
-        (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path
+    Promise.all([
+      tmdb('/search/multi', { query, include_adult: false }),
+      searchAnime(query).catch(() => ({ results: [] })),
+    ]).then(([tmdbData, animeData]) => {
+      const tmdbFiltered = (tmdbData.results || []).filter(r =>
+        (r.media_type === 'movie' || r.media_type === 'tv') &&
+        r.poster_path &&
+        !(r.genre_ids || []).includes(ANIMATION_GENRE_ID)
       );
-      setResults(filtered);
+      const animeResults = (animeData.results || []).map(a => ({ ...a, media_type: 'anime' }));
+      setResults([...animeResults, ...tmdbFiltered]);
       setLoading(false);
     });
   }, [query]);
@@ -30,7 +39,7 @@ export default function SearchPage({ query, onOpen }) {
       ) : (
         <div className="browse-grid">
           {results.map(item => (
-            <Card key={item.id} item={item} type={item.media_type} onOpen={onOpen} />
+            <Card key={`${item.media_type}-${item.id}`} item={item} type={item.media_type} onOpen={onOpen} />
           ))}
         </div>
       )}

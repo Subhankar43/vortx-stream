@@ -5,7 +5,7 @@ import Card, { SkeletonCard } from '../components/Card';
 import { tmdb, IMG } from '../utils/tmdb';
 import { useAuth } from '../hooks/useAuth';
 import NoticeBanner from '../components/NoticeBanner';
-
+import { getAnimeById } from '../utils/jikan';
 
 const GENRES = [
   { id: 28, label: 'Action' }, { id: 35, label: 'Comedy' }, { id: 27, label: 'Horror' },
@@ -98,8 +98,7 @@ async function loadRecommendations() {
     setGenreItems((data.results || []).filter(r => r.poster_path));
     setGenreLoad(false);
   }
-
-  async function loadContinue() {
+async function loadContinue() {
     const prog = getProgressData();
     const items = Object.values(prog)
       .filter(p => p.pct > 2 && p.pct < 95 && p.type !== 'live')
@@ -108,11 +107,19 @@ async function loadRecommendations() {
     if (!items.length) { setContinueItems([]); return; }
     const enriched = await Promise.all(
       items.map(async p => {
-        try { const d = await tmdb(`/${p.type}/${p.id}`); return { ...d, _p: p }; } catch { return null; }
+        try {
+          if (p.type === 'anime') {
+            const d = await getAnimeById(p.id);
+            return d?.id ? { ...d, _p: p } : null;
+          }
+          const d = await tmdb(`/${p.type}/${p.id}`);
+          return d?.id ? { ...d, _p: p } : null;
+        } catch { return null; }
       })
     );
     setContinueItems(enriched.filter(Boolean));
   }
+
 function removeContinue(itemId, itemType) {
   const key = `vx-progress-${user.email}`;
   const prog = JSON.parse(localStorage.getItem(key) || '{}');
